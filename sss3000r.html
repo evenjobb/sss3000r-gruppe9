@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Henting av bilder fra DB</title>
+
+    <style>
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        #image-container {
+            display: flex; 
+            flex-wrap: wrap; 
+        }
+        .image-wrapper {
+            margin: 5px; 
+            text-align: center;
+            position: relative; 
+        }
+        .image-wrapper img {
+            max-width: 400px; 
+            max-height: 400px;
+            object-fit: cover; 
+        }
+        .image-timestamp {
+            margin-top: 5px; 
+            font-size: 12px; 
+        }
+        .delete-button {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            z-index: 1;
+            cursor: pointer;
+            padding: 5px;
+            margin-bottom: 10px;
+            background-color:red;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        .delete-all-button {
+            cursor: pointer;
+            margin-bottom: 20px;
+            padding: 5px;
+            background-color:red;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        
+    </style>
+</head>
+<body>
+    <h1>Visning av bilder.db</h1>
+
+    <div>
+        <button id="delete-all-button" class="delete-all-button">Slett alle bilder</button>
+    </div>
+
+    <label for="from-date">Fra-dato:</label>
+    <input type="date" id="from-date">
+    
+    <label for="to-date">Til-dato:</label>
+    <input type="date" id="to-date">
+
+    <button id="search-button">Søk</button>
+    <div id="image-container"></div>
+
+
+
+
+    <script>
+        function displayImage(imageData) {
+            const img = document.createElement('img');
+            img.src = `data:image/jpeg;base64,${imageData.data}`; 
+            
+            //Kode for å legge inn bilde
+            const div = document.createElement('div');
+            div.className = 'image-wrapper';
+            div.appendChild(img);
+
+            //Kode for å legge inn timestamp
+            const timestamp = document.createElement('div');
+            timestamp.className = 'image-timestamp';
+            timestamp.textContent = `Bilde tatt: ${imageData.tidspunkt}`; 
+            div.appendChild(timestamp);
+
+            // Legger til delete button
+            const deleteButton = document.createElement('div');
+            deleteButton.className = 'delete-button';
+            deleteButton.textContent = 'Slett';
+
+            //Slettefunksjon som snakker med backend
+            const imagePath = imageData.path;
+            deleteButton.addEventListener('click', function() {
+                const imagePath = imageData.path;
+                console.log('Image Path:', imagePath);
+                if (confirm("Er du sikker på at du vil slette dette bildet?")) {
+                    deleteImage(imagePath); 
+                    div.remove();
+                }
+            });
+            div.appendChild(deleteButton);
+            
+            // Legger bilde, timestamp og slett knapp inn i Div
+            document.getElementById('image-container').appendChild(div);
+        }
+
+
+
+
+            //Funksjon for å slette et bestemt bilde
+            function deleteImage(imagePath) {
+            fetch('/delete_image', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: `image_path=${imagePath}`
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                }
+                throw new Error('Nettverksrespons var ikke OK.');
+            })
+            .then(data => {
+                if (data.success) {
+                    console.log('Bilde slettet');
+                } else {
+                    console.error(data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+
+
+        //Funksjon for å slette alle bilder
+        function deleteAllImages() {
+            if (confirm("Er du sikker på at du vil slette alle bilder?")) {
+                fetch('/delete_all_images', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    throw new Error('Nettverksrespons var ikke OK.');
+                })
+                .then(data => {
+                    if (data.success) {
+                        console.log('Alle bilder slettet');
+                    } else {
+                        console.error(data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            }
+        }
+
+
+
+        //Funksjon som henter alle bilder
+        function fetchAndDisplayAllImages() {
+            fetch('/all_images')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('image-container').innerHTML = '';
+                data.images.forEach(imageData => {
+                    displayImage(imageData);
+                });
+            });
+        }
+
+        //Funksjon som henter bilder fra en fra-dato til en til-dato
+        function fetchAndDisplayImages() {
+            const fromDate = document.getElementById('from-date').value;
+            const toDate = document.getElementById('to-date').value;
+
+            document.getElementById('image-container').innerHTML = '';
+
+            fetch(`/filter_images?from=${fromDate}&to=${toDate}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('image-container').innerHTML = '';
+                data.images.forEach(imageData => {
+                    displayImage(imageData);
+                });
+            });
+        }
+
+        document.getElementById('search-button').addEventListener('click', fetchAndDisplayImages);
+        document.getElementById('delete-all-button').addEventListener('click', deleteAllImages);
+        
+        fetchAndDisplayAllImages();
+        
+    </script>
+</body>
+</html>
